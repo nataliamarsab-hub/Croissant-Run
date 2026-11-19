@@ -43,25 +43,31 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
 .legend b{font-weight:600}
 .legend span{color:var(--mut)}
 .help{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:center;margin-top:10px;font-size:13px;color:var(--mut)}
-.help kbd{font:400 11px Silkscreen,monospace;background:var(--ink);color:#fff;padding:2px 6px}
+.help{gap:6px 22px;font-size:14px}
+.help span{display:inline-flex;align-items:center;gap:6px}
+.help kbd{font:700 13px Inter,sans-serif;background:var(--ink);color:#fff;padding:1px 7px;border-radius:4px;min-width:22px;text-align:center}
+.help b{font-weight:600;color:var(--ink)}
+.help.touch{display:none}
+@media(pointer:coarse){.help.keys{display:none}.help.touch{display:flex}}
 .legend span,.help{color:#4f4a44}
 @media(max-width:600px){.score b{font-size:17px}.power{font-size:11px;padding:4px 7px;top:38px}.power .bar{width:40px}.lives canvas{width:21px;height:18px}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="game" id="game" tabindex="0" role="application" aria-label="Croissant Run. Space or tap to jump, press again in the air to double jump, down arrow to duck. You have two hearts. Collect sugar to fly, chocolate to be unstoppable and matcha to slow down.">
+  <div class="game" id="game" tabindex="0" role="application" aria-label="Croissant Run. Up arrow to jump, press it twice to double jump, down arrow to duck. Sugar lets you fly, chocolate makes you unstoppable, matcha slows time, hearts give an extra life.">
     <canvas id="c"></canvas>
     <div class="hud" aria-live="polite">
       <div class="lives" id="lives" aria-label="Lives"></div>
       <div class="power" id="power"><i></i><span id="pname"></span><span class="bar"><u id="pbar"></u></span></div>
       <div class="score"><b id="score">00000</b><span id="best">BEST 00000</span></div>
-      <div class="msg" id="msg"><h2 id="mt">Croissant Run</h2><p id="ms">Late for breakfast. Space or tap to run.</p></div>
+      <div class="msg" id="msg"><h2 id="mt">Croissant Run</h2><p id="ms">Late for breakfast. Press ↑ to run.</p></div>
       <button class="btn" id="mute" type="button" aria-label="Sound on" aria-pressed="false">♪</button>
     </div>
   </div>
   <div class="legend" id="legend"></div>
-  <div class="help"><span><kbd>Space</kbd> or tap: jump</span><span>press again in the air: double jump</span><span><kbd>↓</kbd> or swipe down: duck</span></div>
+  <div class="help keys"><span><kbd>↑</kbd> jump</span><span><kbd>↑</kbd><kbd>↑</kbd> double jump</span><span><kbd>↓</kbd> duck</span></div>
+  <div class="help touch"><span><b>Tap</b> jump</span><span><b>Tap tap</b> double jump</span><span><b>Swipe down</b> duck</span></div>
 </div>
 <script>
 {
@@ -131,9 +137,9 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
     matcha: pad(['.....GG...', '....GDG...', '....G.....', 'kkkkkkkk..', 'kGGGGGGkkk', 'kGDDGGGk.k', 'kGGGGGGkkk', '.kGGGGk...', '..kkkk....'])
   };
   const POW = {
-    sugar: { name: 'Sugar rush', spr: 'sugar', col: '#ff4fa0', dur: 5, tag: 'fly for 5 s' },
-    choc: { name: 'Chocolate', spr: 'choc', col: '#8f5530', dur: 5, tag: 'unstoppable for 5 s' },
-    matcha: { name: 'Matcha', spr: 'matcha', col: '#3fbf5a', dur: 6, tag: 'slow motion for 6 s' }
+    sugar: { name: 'Sugar', spr: 'sugar', col: '#ff4fa0', dur: 5, tag: 'fly' },
+    choc: { name: 'Chocolate', spr: 'choc', col: '#8f5530', dur: 5, tag: 'unstoppable' },
+    matcha: { name: 'Matcha', spr: 'matcha', col: '#3fbf5a', dur: 6, tag: 'slow motion' }
   };
 
   const cv = document.getElementById('c'), ctx = cv.getContext('2d'), box = document.getElementById('game');
@@ -154,7 +160,7 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
   const px = (x, y, col, w = 1, h = 1) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
 
   // legend
-  const ITEMS = { ...POW, heart: { name: 'Heart', spr: 'heart', col: '#ff3b4e', tag: 'one life back, 1 min after losing one' } };
+  const ITEMS = { ...POW, heart: { name: 'Heart', spr: 'heart', col: '#ff3b4e', tag: 'extra life' } };
   document.getElementById('legend').innerHTML = Object.entries(ITEMS).map(([k, p]) => `<div><canvas data-s="${p.spr}" width="12" height="12" aria-hidden="true"></canvas><span><b>${p.name}</b> <span>· ${p.tag}</span></span></div>`).join('');
   document.querySelectorAll('#legend canvas').forEach((c) => {
     const x = c.getContext('2d'), rows = S[c.dataset.s];
@@ -200,6 +206,8 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
   const clouds = Array.from({ length: 4 }, (_, i) => ({ x: i * 110 + Math.random() * 40, y: 10 + Math.random() * 22 }));
 
   const $ = (id) => document.getElementById(id);
+  const TOUCH = matchMedia('(pointer: coarse)').matches;
+  if (TOUCH) $('ms').textContent = 'Late for breakfast. Tap to run.';
   const showMsg = (h, p) => { $('mt').textContent = h; $('ms').textContent = p; $('msg').hidden = false; };
   const reset = () => {
     P.y = GROUND; P.vy = 0; P.duck = false; P.onGround = true;
@@ -220,7 +228,7 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
     beep(300, 70, 0.4, 'sawtooth', 0.06);
     const s = Math.floor(dist / 4);
     if (s > best) { best = s; try { localStorage.setItem('croissant-best', String(best)); } catch (e) {} }
-    showMsg('Crumbs everywhere', `${s} m of pastry glory · Space or tap to retry`);
+    showMsg('Crumbs everywhere', `${s} m · ${TOUCH ? 'Tap' : 'Press ↑'} to try again`);
   };
   const heartCanvas = (full) => { const c = document.createElement('canvas'); c.width = 7; c.height = 7; const x = c.getContext('2d'); S[full ? 'heart' : 'heartE'].forEach((row, ri) => [...row].forEach((ch, ci) => { if (ch !== '.') { x.fillStyle = PAL[ch]; x.fillRect(ci, ri, 1, 1); } })); return c; };
   const paintLives = () => { const el = $('lives'); el.innerHTML = ''; for (let i = 0; i < 2; i++) el.appendChild(heartCanvas(i < hearts)); el.setAttribute('aria-label', hearts + (hearts === 1 ? ' heart left' : ' hearts left')); };
