@@ -24,7 +24,9 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
 .score{position:absolute;right:68px;top:12px;text-align:right;line-height:1.1}
 .score b{display:block;font-size:22px;font-weight:700}
 .score span{font-size:12px;color:var(--mut)}
-.power{position:absolute;left:14px;top:12px;display:none;align-items:center;gap:8px;background:#fff;border:3px solid var(--ink);padding:5px 9px;font-size:13px}
+.lives{position:absolute;left:14px;top:12px;display:flex;gap:4px}
+.lives canvas{width:28px;height:24px;image-rendering:pixelated}
+.power{position:absolute;left:14px;top:46px;display:none;align-items:center;gap:8px;background:#fff;border:3px solid var(--ink);padding:5px 9px;font-size:13px}
 .power.on{display:flex}
 .power i{width:12px;height:12px;background:var(--pc)}
 .power .bar{width:64px;height:6px;background:#d6d2ca;position:relative}
@@ -43,14 +45,15 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
 .help{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:center;margin-top:10px;font-size:13px;color:var(--mut)}
 .help kbd{font:400 11px Silkscreen,monospace;background:var(--ink);color:#fff;padding:2px 6px}
 .legend span,.help{color:#4f4a44}
-@media(max-width:600px){.score b{font-size:17px}.power{font-size:11px;padding:4px 7px}.power .bar{width:40px}}
+@media(max-width:600px){.score b{font-size:17px}.power{font-size:11px;padding:4px 7px;top:38px}.power .bar{width:40px}.lives canvas{width:21px;height:18px}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="game" id="game" tabindex="0" role="application" aria-label="Croissant Run. Space or tap to jump, down arrow to duck. Collect sugar to fly, chocolate to be unstoppable and matcha to slow down.">
+  <div class="game" id="game" tabindex="0" role="application" aria-label="Croissant Run. Space or tap to jump, press again in the air to double jump, down arrow to duck. You have two hearts. Collect sugar to fly, chocolate to be unstoppable and matcha to slow down.">
     <canvas id="c"></canvas>
     <div class="hud" aria-live="polite">
+      <div class="lives" id="lives" aria-label="Lives"></div>
       <div class="power" id="power"><i></i><span id="pname"></span><span class="bar"><u id="pbar"></u></span></div>
       <div class="score"><b id="score">00000</b><span id="best">BEST 00000</span></div>
       <div class="msg" id="msg"><h2 id="mt">Croissant Run</h2><p id="ms">Late for breakfast. Space or tap to run.</p></div>
@@ -58,14 +61,14 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
     </div>
   </div>
   <div class="legend" id="legend"></div>
-  <div class="help"><span><kbd>Space</kbd> or tap: jump (hold for higher)</span><span><kbd>↓</kbd> or swipe down: duck</span></div>
+  <div class="help"><span><kbd>Space</kbd> or tap: jump</span><span>press again in the air: double jump</span><span><kbd>↓</kbd> or swipe down: duck</span></div>
 </div>
 <script>
 {
   // ---------- palette & sprites ----------
   const INK = '#3a3632';
   const PAL = { k: INK, g: '#ecb866', c: '#c47f32', h: '#fde3a7', w: '#ffffff', m: '#5fa8c4', l: '#b9c4d0', d: '#8b96a3', n: '#e8a14f',
-    p: '#ff4fa0', P: '#ffb3d6', b: '#6b3a1f', B: '#8f5530', y: '#ffc400', G: '#3fbf5a', D: '#24863b', s: '#d6d2ca' };
+    r: '#ff3b4e', R: '#ff9aa5', L: '#e3e0da', p: '#ff4fa0', P: '#ffb3d6', b: '#6b3a1f', B: '#8f5530', y: '#ffc400', G: '#3fbf5a', D: '#24863b', s: '#d6d2ca' };
   const pad = (rows) => { const w = Math.max(...rows.map((r) => r.length)); return rows.map((r) => r.padEnd(w, '.')); };
   const S = {
     cro: pad([
@@ -123,6 +126,8 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
       '....kkkkkk....']),
     sugar: pad(['.kkkkkk.', 'kwwwwwPk', 'kwwwwPpk', 'kwwwPpwk', 'kwwPpwwk', 'kwPpwwwk', 'kwwwwwwk', '.kkkkkk.']),
     choc: pad(['kkkkkkkkkk', 'kbBkbBkyyk', 'kbbkbbkyyk', 'kkkkkkkyyk', 'kbBkbBkyyk', 'kbbkbbkyyk', 'kkkkkkkkkk']),
+    heart: pad(['.kk.kk.', 'krrkrrk', 'krRrrrk', 'krrrrrk', '.krrrk.', '..krk..', '...k...']),
+    heartE: pad(['.kk.kk.', 'kllklLk', 'klllllk', 'klllllk', '.klllk.', '..klk..', '...k...']),
     matcha: pad(['.....GG...', '....GDG...', '....G.....', 'kkkkkkkk..', 'kGGGGGGkkk', 'kGDDGGGk.k', 'kGGGGGGkkk', '.kGGGGk...', '..kkkk....'])
   };
   const POW = {
@@ -149,7 +154,8 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
   const px = (x, y, col, w = 1, h = 1) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
 
   // legend
-  document.getElementById('legend').innerHTML = Object.entries(POW).map(([k, p]) => `<div><canvas data-s="${p.spr}" width="12" height="12" aria-hidden="true"></canvas><span><b>${p.name}</b> <span>· ${p.tag}</span></span></div>`).join('');
+  const ITEMS = { ...POW, heart: { name: 'Heart', spr: 'heart', col: '#ff3b4e', tag: 'one life back, 1 min after losing one' } };
+  document.getElementById('legend').innerHTML = Object.entries(ITEMS).map(([k, p]) => `<div><canvas data-s="${p.spr}" width="12" height="12" aria-hidden="true"></canvas><span><b>${p.name}</b> <span>· ${p.tag}</span></span></div>`).join('');
   document.querySelectorAll('#legend canvas').forEach((c) => {
     const x = c.getContext('2d'), rows = S[c.dataset.s];
     const ox = Math.floor((12 - rows[0].length) / 2), oy = Math.floor((12 - rows.length) / 2);
@@ -185,9 +191,9 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
   // ---------- state ----------
   let best = 0;
   try { best = Number(localStorage.getItem('croissant-best')) || 0; } catch (e) {}
-  const P = { x: 34, y: GROUND, vy: 0, duck: false, hold: false, onGround: true };
+  const P = { x: 34, y: GROUND, vy: 0, duck: false, onGround: true, jumps: 0 };
   let mode = 'ready', speed = 150, dist = 0, obs = [], items = [], parts = [], nextGap = 220, nextPow = 7, t = 0, flash = 0, shake = 0;
-  let power = null, powerLeft = 0, overAt = 0;
+  let power = null, powerLeft = 0, overAt = 0, hearts = 2, invul = 0, runT = 0, heartReadyAt = Infinity;
   const roofs = [];
   const ROOFC = [['#ecd5c8', '#ddbfae'], ['#d5e3d0', '#bfd2b8'], ['#ebdfc4', '#dccaa4'], ['#d4dbea', '#bcc6dc'], ['#e9d0d8', '#d8b5c0']];
   for (let i = 0, x = 0; i < 16; i++) { const w = 24 + Math.floor(Math.random() * 30); roofs.push({ x, w, h: 16 + Math.floor(Math.random() * 26), peak: Math.random() < 0.35, c: ROOFC[i % ROOFC.length] }); x += w + 3; }
@@ -199,12 +205,13 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
     P.y = GROUND; P.vy = 0; P.duck = false; P.onGround = true;
     speed = 150; dist = 0; obs = []; items = []; parts = []; nextGap = 220; nextPow = 6 + Math.random() * 3;
     power = null; powerLeft = 0; mode = 'run'; $('msg').hidden = true; paintPower();
+    P.jumps = 0; hearts = 2; invul = 0; runT = 0; heartReadyAt = Infinity; paintLives();
   };
   const jump = () => {
     if (mode !== 'run') { if (mode === 'over' && t - overAt < 0.45) return; reset(); }
     if (power === 'sugar') { P.vy = -190; P.onGround = false; beep(700, 1100, 0.07, 'triangle', 0.04); }
-    else if (P.onGround) { P.vy = -330; P.onGround = false; beep(420, 880, 0.1); }
-    P.hold = true;
+    else if (P.onGround) { P.vy = -300; P.onGround = false; P.jumps = 1; beep(420, 880, 0.1); }
+    else if (P.jumps === 1) { P.vy = -285; P.jumps = 2; beep(620, 1240, 0.1); burst(P.x, P.y, '#ffffff', 8, 70); }
   };
   const burst = (x, y, col, n = 14, spd = 120) => { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = spd * (0.4 + Math.random()); parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, col, life: 0.6 + Math.random() * 0.4, g: 300 }); } };
   let die = () => {
@@ -215,6 +222,8 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
     if (s > best) { best = s; try { localStorage.setItem('croissant-best', String(best)); } catch (e) {} }
     showMsg('Crumbs everywhere', `${s} m of pastry glory · Space or tap to retry`);
   };
+  const heartCanvas = (full) => { const c = document.createElement('canvas'); c.width = 7; c.height = 7; const x = c.getContext('2d'); S[full ? 'heart' : 'heartE'].forEach((row, ri) => [...row].forEach((ch, ci) => { if (ch !== '.') { x.fillStyle = PAL[ch]; x.fillRect(ci, ri, 1, 1); } })); return c; };
+  const paintLives = () => { const el = $('lives'); el.innerHTML = ''; for (let i = 0; i < 2; i++) el.appendChild(heartCanvas(i < hearts)); el.setAttribute('aria-label', hearts + (hearts === 1 ? ' heart left' : ' hearts left')); };
   const paintPower = () => {
     const el = $('power');
     if (!power) { el.classList.remove('on'); return; }
@@ -230,6 +239,7 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
 
   // ---------- spawning ----------
   const spawn = () => {
+    if (items.some((it) => it.x > LW - 70)) { nextGap = 30; return; }
     const sc = Math.floor(dist / 4), r = Math.random();
     if (sc > 200 && r < 0.27) {
       const lv = [GROUND - 6, GROUND - 15, GROUND - 36][Math.floor(Math.random() * 3)];
@@ -243,15 +253,20 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
     }
     nextGap = 110 + speed * 0.45 + Math.random() * 140;
   };
-  const spawnPower = () => {
-    const keys = Object.keys(POW).filter((k) => k !== power);
-    const k = keys[Math.floor(Math.random() * keys.length)];
-    const air = Math.random() < 0.5;
-    items.push({ k, x: LW + 8, y: air ? GROUND - 40 : GROUND - 12, ph: Math.random() * 6 });
-    nextPow = 9 + Math.random() * 6;
-    nextGap = Math.max(nextGap, 70);
+  const clearAhead = () => !obs.some((o) => !o.dead && o.x + o.w > LW - 70);
+  const spawnItem = (k) => {
+    const lvl = Math.random();
+    const y = lvl < 0.4 ? GROUND - 12 : lvl < 0.8 ? GROUND - 40 : GROUND - 64;
+    items.push({ k, x: LW + 8, y, ph: Math.random() * 6 });
+    nextGap = Math.max(nextGap, 90);
   };
-  const box2 = () => (P.duck && P.onGround && power !== 'sugar') ? { x: P.x - 8, y: P.y - 9, w: 16, h: 8 } : { x: P.x - 7, y: P.y - 12, w: 14, h: 11 };
+  const spawnPower = () => {
+    if (!clearAhead()) return;
+    const keys = Object.keys(POW).filter((k) => k !== power);
+    spawnItem(keys[Math.floor(Math.random() * keys.length)]);
+    nextPow = 9 + Math.random() * 6;
+  };
+  const box2 = () => (P.duck && P.onGround && power !== 'sugar') ? { x: P.x - 8, y: P.y - 7, w: 16, h: 6 } : { x: P.x - 7, y: P.y - 12, w: 14, h: 11 };
   const hit = (a, o) => { const b = { x: o.x + 1, y: o.y + 1, w: o.w - 2, h: o.h - 1 }; return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; };
 
   // ---------- render ----------
@@ -298,11 +313,11 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
       px(x + lx + o, P.y - 1, INK, 2, 1);
     });
     // body
-    const rows = ducking ? [0, 2, 3, 4, 5, 7, 8, 9] : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    const by = Math.round(P.y - 3 - rows.length - (mode === 'run' && P.onGround && !ducking ? ph : 0));
+    const rows = ducking ? [0, 3, 4, 5, 8, 9] : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const by = Math.round(P.y - (ducking ? 2 : 3) - rows.length - (mode === 'run' && P.onGround && !ducking ? ph : 0));
     const saved = S.cro; S.tmp = rows.map((r) => saved[r]); drawSpr('tmp', x, by, pal);
     // eyes & mouth
-    const ey = by + (ducking ? 2 : 3);
+    const ey = by + (ducking ? 1 : 3);
     if (dead) {
       [[5, ey], [10, ey]].forEach(([ex, yy]) => { px(x + ex, yy, INK); px(x + ex + 2, yy, INK); px(x + ex + 1, yy + 1, INK); px(x + ex, yy + 2, INK); px(x + ex + 2, yy + 2, INK); });
     } else {
@@ -325,12 +340,14 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
       dist += speed * wdt;
       // player physics
       if (power === 'sugar') { P.vy += 520 * dt; if (P.y < 12) { P.y = 12; P.vy = Math.max(P.vy, 0); } }
-      else P.vy += (P.duck && !P.onGround ? 2600 : (P.vy < 0 && P.hold ? 760 : 1450)) * dt;
+      else P.vy += (P.duck && !P.onGround ? 2600 : 1300) * dt;
       P.y += P.vy * dt;
-      if (P.y >= GROUND) { if (!P.onGround) beep(160, 120, 0.05, 'triangle', 0.03); P.y = GROUND; P.vy = 0; P.onGround = true; }
+      if (P.y >= GROUND) { P.jumps = 0; if (!P.onGround) beep(160, 120, 0.05, 'triangle', 0.03); P.y = GROUND; P.vy = 0; P.onGround = true; }
       // spawning
       nextGap -= speed * wdt; if (nextGap <= 0) spawn();
       nextPow -= wdt; if (nextPow <= 0 && nextGap > 60) spawnPower();
+      runT += dt; if (invul > 0) invul -= dt;
+      if (hearts < 2 && runT >= heartReadyAt && !items.some((it) => it.k === 'heart') && clearAhead()) { spawnItem('heart'); heartReadyAt = Infinity; }
       // move
       obs.forEach((o) => {
         if (o.dead) { o.x += o.vx * dt; o.y += o.vy * dt; o.vy += 600 * dt; return; }
@@ -346,16 +363,26 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
       // collisions
       const hb = box2();
       items = items.filter((it) => {
-        const sp = S[POW[it.k].spr];
+        const sp = S[ITEMS[it.k].spr];
         const bob = Math.sin(t * 5 + it.ph) * 2;
         const ib = { x: it.x - 1, y: it.y + bob - 1, w: sp[0].length + 2, h: sp.length + 2 };
-        if (hit(hb, ib)) { getPower(it.k); return false; }
+        if (!hit(hb, ib)) return true;
+        if (it.k === 'heart') {
+          hearts = Math.min(2, hearts + 1); paintLives(); heartReadyAt = hearts < 2 ? runT + 60 : Infinity;
+          burst(P.x, P.y - 8, '#ff3b4e', 18, 130); [0, 0.08, 0.16].forEach((d, i) => beep(660 * Math.pow(1.19, i), 680 * Math.pow(1.19, i), 0.1, 'triangle', 0.05, d));
+        } else getPower(it.k);
+        return false;
         return true;
       });
       for (const o of obs) {
         if (o.dead || !hit(hb, o)) continue;
         if (power === 'choc') { o.dead = true; o.vx = 160 + Math.random() * 80; o.vy = -180; dist += 40; burst(o.x + o.w / 2, o.y + o.h / 2, '#ffc400', 10, 120); beep(220, 660, 0.12, 'square', 0.05); shake = 0.12; }
-        else { die(); break; }
+        else if (invul > 0) continue;
+        else if (hearts > 0) {
+          hearts--; paintLives(); invul = 1.6; heartReadyAt = runT + 60;
+          o.dead = true; o.vx = 120; o.vy = -160; shake = 0.2;
+          burst(P.x, P.y - 8, '#ff3b4e', 12, 110); beep(330, 150, 0.2, 'square', 0.06);
+        } else { die(); break; }
       }
       // power timer
       if (power) {
@@ -383,7 +410,7 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
       if ((o.k === 'cup' || o.k === 'bigcup') && !o.dead) for (let i = 0; i < 2; i++) for (let k = 0; k < 4; k++) px(o.x + 2 + i * 3 + (Math.floor(t * 6 + k + o.ph + i) % 2), o.y - 2 - k * 2, '#c9c5bd');
     });
     items.forEach((it) => {
-      const p = POW[it.k], sp = S[p.spr], bob = Math.round(Math.sin(t * 5 + it.ph) * 2);
+      const p = ITEMS[it.k], sp = S[p.spr], bob = Math.round(Math.sin(t * 5 + it.ph) * 2);
       const w = sp[0].length, h = sp.length, pulse = Math.floor(t * 6) % 2;
       ctx.fillStyle = p.col; ctx.globalAlpha = pulse ? 0.35 : 0.18;
       ctx.fillRect(Math.round(it.x) - 3, it.y + bob - 3, w + 6, h + 6);
@@ -391,7 +418,7 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
       drawSpr(p.spr, it.x, it.y + bob);
       if (Math.floor(t * 4 + it.ph) % 3 === 0) { px(it.x - 2, it.y + bob - 3, '#fff'); px(it.x + w + 1, it.y + bob + h, '#fff'); }
     });
-    if (mode !== 'over' || Math.floor((t - overAt) * 4) % 2 === 0 || t - overAt > 1) drawPlayer();
+    if ((mode !== 'over' || Math.floor((t - overAt) * 4) % 2 === 0 || t - overAt > 1) && !(invul > 0 && Math.floor(t * 14) % 2)) drawPlayer();
     parts.forEach((p) => px(p.x, p.y, p.col));
     if (power === 'matcha') { ctx.fillStyle = 'rgba(63,191,90,.10)'; ctx.fillRect(0, 0, LW, LH); }
     requestAnimationFrame(frame);
@@ -402,19 +429,20 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
   const isDuck = (k) => k === 'ArrowDown' || k === 's' || k === 'S';
   let armed = false;
   box.addEventListener('focus', () => (armed = true));
-  box.addEventListener('blur', () => { armed = false; P.duck = false; P.hold = false; });
+  box.addEventListener('blur', () => { armed = false; P.duck = false; });
   document.addEventListener('keydown', (e) => {
     if (!armed && document.activeElement !== document.body) return;
     if (isJump(e.key)) { e.preventDefault(); if (!e.repeat) jump(); }
     else if (isDuck(e.key)) { e.preventDefault(); if (mode === 'run') P.duck = true; }
   });
-  document.addEventListener('keyup', (e) => { if (isJump(e.key)) P.hold = false; if (isDuck(e.key)) P.duck = false; });
+  document.addEventListener('keyup', (e) => { if (isDuck(e.key)) P.duck = false; });
   let ty = null;
   box.addEventListener('pointerdown', (e) => { box.focus({ preventScroll: true }); ty = e.clientY; jump(); });
-  box.addEventListener('pointermove', (e) => { if (ty !== null && e.clientY - ty > 30 && mode === 'run') { P.duck = true; P.hold = false; } });
-  const up = () => { ty = null; P.hold = false; P.duck = false; };
+  box.addEventListener('pointermove', (e) => { if (ty !== null && e.clientY - ty > 30 && mode === 'run') { P.duck = true; } });
+  const up = () => { ty = null; P.duck = false; };
   box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
 
+  paintLives();
   new ResizeObserver(resize).observe(box);
   resize();
   requestAnimationFrame(frame);
