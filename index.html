@@ -12,19 +12,19 @@
    PICTURE: the game screen itself, pixel-perfect, full width.
    COLOUR and TYPE: warm greys and ink; pink sugar, brown-gold chocolate, green matcha; Silkscreen + Inter.
    LAYOUT: game first, a three-item legend of treats and the controls under it. */
-:root{color-scheme:light;--bg:#fefefe;--ink:#3a3632;--mut:#6f6a63}
+:root{color-scheme:light;--bg:#efefef;--ink:#3a3632;--mut:#6f6a63}
 *{box-sizing:border-box;min-width:0}
 html,body{background:var(--bg)}
 body{margin:0;color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif;overflow-x:clip}
 .wrap{max-width:860px;margin:0 auto;padding:6px 6px 14px}
-.game{position:relative;border-radius:18px;overflow:hidden;background:#efede8;box-shadow:0 0 0 3px var(--ink),0 6px 0 var(--ink);cursor:pointer;touch-action:manipulation;outline:none;user-select:none;-webkit-user-select:none}
+.game{position:relative;border-radius:18px;overflow:hidden;background:#e3edf1;box-shadow:0 0 0 3px var(--ink),0 6px 0 var(--ink);cursor:pointer;touch-action:manipulation;outline:none;user-select:none;-webkit-user-select:none}
 .game:focus-visible{box-shadow:0 0 0 3px var(--ink),0 6px 0 var(--ink),0 0 0 7px #ff4fa0}
 canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-edges}
 .hud{position:absolute;inset:0;pointer-events:none;font-family:Silkscreen,monospace;color:var(--ink)}
 .score{position:absolute;right:68px;top:12px;text-align:right;line-height:1.1}
 .score b{display:block;font-size:22px;font-weight:700}
 .score span{font-size:12px;color:var(--mut)}
-.power{position:absolute;left:14px;top:12px;display:none;align-items:center;gap:8px;background:#fefefe;border:3px solid var(--ink);padding:5px 9px;font-size:13px}
+.power{position:absolute;left:14px;top:12px;display:none;align-items:center;gap:8px;background:#fff;border:3px solid var(--ink);padding:5px 9px;font-size:13px}
 .power.on{display:flex}
 .power i{width:12px;height:12px;background:var(--pc)}
 .power .bar{width:64px;height:6px;background:#d6d2ca;position:relative}
@@ -33,7 +33,7 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
 .msg h2{margin:0;font:700 clamp(20px,4.4vw,34px)/1 Silkscreen,monospace;letter-spacing:.02em}
 .msg p{margin:0;font:400 clamp(11px,1.9vw,15px)/1.3 Silkscreen,monospace;color:var(--mut)}
 .msg[hidden]{display:none}
-.btn{position:absolute;right:12px;top:12px;width:44px;height:44px;border:3px solid var(--ink);background:#fefefe;color:var(--ink);font:700 16px Silkscreen,monospace;cursor:pointer;pointer-events:auto;border-radius:0}
+.btn{position:absolute;right:12px;top:12px;width:44px;height:44px;border:3px solid var(--ink);background:#fff;color:var(--ink);font:700 16px Silkscreen,monospace;cursor:pointer;pointer-events:auto;border-radius:0}
 .btn:focus-visible{outline:3px solid #ff4fa0;outline-offset:2px}
 .legend{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 26px;margin-top:18px;font-size:14px}
 .legend div{display:flex;align-items:center;gap:8px}
@@ -63,7 +63,7 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
 {
   // ---------- palette & sprites ----------
   const INK = '#3a3632';
-  const PAL = { k: INK, g: '#d9c7a6', c: '#b49d78', h: '#f1e6d1', w: '#ffffff', m: '#a8a39a', l: '#cfcac1', d: '#7d7870', n: '#c2a77d',
+  const PAL = { k: INK, g: '#ecb866', c: '#c47f32', h: '#fde3a7', w: '#ffffff', m: '#5fa8c4', l: '#b9c4d0', d: '#8b96a3', n: '#e8a14f',
     p: '#ff4fa0', P: '#ffb3d6', b: '#6b3a1f', B: '#8f5530', y: '#ffc400', G: '#3fbf5a', D: '#24863b', s: '#d6d2ca' };
   const pad = (rows) => { const w = Math.max(...rows.map((r) => r.length)); return rows.map((r) => r.padEnd(w, '.')); };
   const S = {
@@ -188,7 +188,8 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
   let mode = 'ready', speed = 150, dist = 0, obs = [], items = [], parts = [], nextGap = 220, nextPow = 7, t = 0, flash = 0, shake = 0;
   let power = null, powerLeft = 0, overAt = 0;
   const roofs = [];
-  for (let i = 0, x = 0; i < 16; i++) { const w = 24 + Math.floor(Math.random() * 30); roofs.push({ x, w, h: 16 + Math.floor(Math.random() * 26), peak: Math.random() < 0.35 }); x += w + 3; }
+  const ROOFC = [['#ecd5c8', '#ddbfae'], ['#d5e3d0', '#bfd2b8'], ['#ebdfc4', '#dccaa4'], ['#d4dbea', '#bcc6dc'], ['#e9d0d8', '#d8b5c0']];
+  for (let i = 0, x = 0; i < 16; i++) { const w = 24 + Math.floor(Math.random() * 30); roofs.push({ x, w, h: 16 + Math.floor(Math.random() * 26), peak: Math.random() < 0.35, c: ROOFC[i % ROOFC.length] }); x += w + 3; }
   const clouds = Array.from({ length: 4 }, (_, i) => ({ x: i * 110 + Math.random() * 40, y: 10 + Math.random() * 22 }));
 
   const $ = (id) => document.getElementById(id);
@@ -254,20 +255,22 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
 
   // ---------- render ----------
   const drawWorld = () => {
-    ctx.fillStyle = '#efede8'; ctx.fillRect(0, 0, LW, LH);
-    ctx.fillStyle = '#e4e1da'; ctx.fillRect(LW * 0.66, 12, 12, 12); ctx.fillRect(LW * 0.66 - 2, 14, 16, 8); ctx.fillRect(LW * 0.66 + 2, 10, 8, 16);
+    const sky = ctx.createLinearGradient(0, 0, 0, GROUND);
+    sky.addColorStop(0, '#d7e8f0'); sky.addColorStop(1, '#eef4f2');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, LW, LH);
+    ctx.fillStyle = '#ffe1a1'; ctx.fillRect(LW * 0.66, 12, 12, 12); ctx.fillRect(LW * 0.66 - 2, 14, 16, 8); ctx.fillRect(LW * 0.66 + 2, 10, 8, 16);
     ctx.fillStyle = '#fbfaf7';
     clouds.forEach((c) => { const x = Math.round(c.x), y = Math.round(c.y); ctx.fillRect(x, y, 18, 4); ctx.fillRect(x + 4, y - 3, 9, 3); ctx.fillRect(x + 12, y - 2, 4, 2); });
     roofs.forEach((r) => {
       const x = Math.round(r.x), top = GROUND - r.h;
-      ctx.fillStyle = '#e2dfd8'; ctx.fillRect(x, top, r.w, r.h);
+      ctx.fillStyle = r.c[0]; ctx.fillRect(x, top, r.w, r.h);
       if (r.peak) for (let i = 0; i < 6; i++) ctx.fillRect(x + i, top - 6 + i, r.w - i * 2, 1);
-      ctx.fillStyle = '#d6d2ca';
+      ctx.fillStyle = r.c[1];
       for (let wy = top + 4; wy < GROUND - 5; wy += 7) for (let wx = x + 3; wx < x + r.w - 4; wx += 6) ctx.fillRect(wx, wy, 3, 4);
     });
-    ctx.fillStyle = '#e8e5df'; ctx.fillRect(0, GROUND, LW, LH - GROUND);
+    ctx.fillStyle = '#ebe2d2'; ctx.fillRect(0, GROUND, LW, LH - GROUND);
     ctx.fillStyle = INK; ctx.fillRect(0, GROUND, LW, 1);
-    ctx.fillStyle = '#b9b4ab';
+    ctx.fillStyle = '#c9b89c';
     const o1 = Math.floor(dist) % 18, o2 = Math.floor(dist) % 37;
     for (let x = -o1; x < LW; x += 18) ctx.fillRect(x, GROUND + 5, 6, 1);
     for (let x = -o2 + 9; x < LW; x += 37) ctx.fillRect(x, GROUND + 12, 2, 1);
@@ -335,7 +338,7 @@ canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-
       items.forEach((it) => (it.x -= speed * wdt));
       roofs.forEach((r) => { r.x -= speed * 0.25 * wdt; });
       let maxX = Math.max(...roofs.map((r) => r.x + r.w));
-      roofs.forEach((r) => { if (r.x + r.w < 0) { r.x = maxX + 3; maxX = r.x + r.w; r.h = 16 + Math.floor(Math.random() * 26); r.peak = Math.random() < 0.35; } });
+      roofs.forEach((r) => { if (r.x + r.w < 0) { r.x = maxX + 3; maxX = r.x + r.w; r.h = 16 + Math.floor(Math.random() * 26); r.peak = Math.random() < 0.35; r.c = ROOFC[Math.floor(Math.random() * ROOFC.length)]; } });
       clouds.forEach((c) => { c.x -= speed * 0.06 * wdt; if (c.x < -24) { c.x = LW + Math.random() * 40; c.y = 10 + Math.random() * 22; } });
       obs = obs.filter((o) => o.x > -30 && o.y < LH + 20);
       items = items.filter((it) => it.x > -20);
